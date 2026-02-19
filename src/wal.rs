@@ -6,7 +6,7 @@ use crate::{
 use log::{error, info, warn};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
-use tokio::{sync::RwLock, sync::watch};
+use tokio::sync::{RwLock, watch};
 
 pub struct WalLocalFile {
     pub(crate) base_dir: PathBuf,
@@ -134,6 +134,7 @@ mod tests {
     use crate::{WalReader, WalWriter};
 
     use super::*;
+    use std::borrow::Cow;
 
     const TEST_SEGMENT_SIZE: u64 = 1024;
 
@@ -170,8 +171,8 @@ mod tests {
         let partition = WalPartitionId(0);
 
         let record = TestRecord::Put {
-            key: vec![0; 10],
-            value: vec![0; 10],
+            key: Cow::Borrowed(&[0; 10]),
+            value: Cow::Borrowed(&[0; 10]),
             hlc: 0,
         };
 
@@ -213,8 +214,8 @@ mod tests {
         let partition = WalPartitionId(0);
 
         let record = TestRecord::Put {
-            key: vec![0; 100],
-            value: vec![0; 100],
+            key: Cow::Borrowed(&[0; 100]),
+            value: Cow::Borrowed(&[0; 100]),
             hlc: 0,
         };
 
@@ -236,8 +237,8 @@ mod tests {
         let partition = WalPartitionId(0);
 
         let record = TestRecord::Put {
-            key: vec![0; 100],
-            value: vec![0; 100],
+            key: Cow::Borrowed(&[0; 100]),
+            value: Cow::Borrowed(&[0; 100]),
             hlc: 0,
         };
 
@@ -268,8 +269,8 @@ mod tests {
         let test_dir = PathBuf::from("/tmp/test_wal_recovery");
         let partition = WalPartitionId(0);
         let record = TestRecord::Put {
-            key: b"data".to_vec(),
-            value: b"value".to_vec(),
+            key: Cow::Borrowed(b"data"),
+            value: Cow::Borrowed(b"value"),
             hlc: 123,
         };
 

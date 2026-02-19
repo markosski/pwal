@@ -185,14 +185,21 @@ impl WalLocalFile {
     ) -> Result<(), WalError> {
         let len: u32 = payload.len() as u32;
 
-        // Combine length, payload, and LSN into a single buffer for a more atomic write
-        let mut full_payload = Vec::with_capacity(4 + payload.len() + 8);
-        full_payload.extend_from_slice(&len.to_le_bytes());
-        full_payload.extend_from_slice(payload);
-        full_payload.extend_from_slice(&lsn.to_le_bytes());
-
+        // Write length prefix
         buffer
-            .write_all(&full_payload)
+            .write_all(&len.to_le_bytes())
+            .await
+            .map_err(|e| WalError::GeneralError(e.to_string()))?;
+
+        // Write payload
+        buffer
+            .write_all(payload)
+            .await
+            .map_err(|e| WalError::GeneralError(e.to_string()))?;
+
+        // Write LSN suffix
+        buffer
+            .write_all(&lsn.to_le_bytes())
             .await
             .map_err(|e| WalError::GeneralError(e.to_string()))?;
 

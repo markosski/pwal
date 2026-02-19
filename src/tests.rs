@@ -8,11 +8,15 @@ use crate::{
     wal::WalLocalFile,
 };
 
+use std::borrow::Cow;
+
 #[derive(Serialize, Deserialize, Encode, Decode, Clone, Debug, PartialEq)]
-pub enum TestRecord {
+pub enum TestRecord<'a> {
     Put {
-        key: Vec<u8>,
-        value: Vec<u8>,
+        #[serde(borrow)]
+        key: Cow<'a, [u8]>,
+        #[serde(borrow)]
+        value: Cow<'a, [u8]>,
         hlc: u64,
     },
 }
@@ -24,14 +28,14 @@ async fn test_wal() {
         .unwrap();
 
     let record1 = TestRecord::Put {
-        key: b"key".to_vec(),
-        value: b"value".to_vec(),
+        key: Cow::Borrowed(b"key"),
+        value: Cow::Borrowed(b"value"),
         hlc: 0,
     };
 
     let record2 = TestRecord::Put {
-        key: b"key2".to_vec(),
-        value: b"value2".to_vec(),
+        key: Cow::Borrowed(b"key2"),
+        value: Cow::Borrowed(b"value2"),
         hlc: 0,
     };
 
@@ -107,18 +111,18 @@ async fn test_stream_from_lsn() {
         .unwrap();
 
     let record1 = TestRecord::Put {
-        key: b"key1".to_vec(),
-        value: b"val1".to_vec(),
+        key: Cow::Borrowed(b"key1"),
+        value: Cow::Borrowed(b"val1"),
         hlc: 0,
     };
     let record2 = TestRecord::Put {
-        key: b"key2".to_vec(),
-        value: b"val2".to_vec(),
+        key: Cow::Borrowed(b"key2"),
+        value: Cow::Borrowed(b"val2"),
         hlc: 0,
     };
     let record3 = TestRecord::Put {
-        key: b"key3".to_vec(),
-        value: b"val3".to_vec(),
+        key: Cow::Borrowed(b"key3"),
+        value: Cow::Borrowed(b"val3"),
         hlc: 0,
     };
 
