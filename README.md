@@ -26,6 +26,9 @@ pub enum MyRecord {
         key: Vec<u8>,
         value: Vec<u8>,
     },
+    Delete {
+        key: Vec<u8>,
+    },
 }
 
 #[tokio::main]
@@ -42,10 +45,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (lsn, pos) = wal.append(partition, record).await?;
     println!("Appended record with LSN {} at segment {} offset {}", 
         lsn, pos.segment_index, pos.local_offset);
-    
     wal.io_sync().await?;
     Ok(())
 }
+```
+
+## Benchmarks
+
+The following benchmarks were performed on a **MacBook Pro** with an **Apple M4** CPU.
+
+### System Specifications
+- **CPU**: Apple M4 (10 cores)
+- **RAM**: 16 GB
+- **OS**: macOS
+
+### Results
+| Benchmark | Average Time |
+|-----------|--------------|
+| `append_record` | 6.8 µs |
+| `append_1000_records` | 6.79 ms |
+| `stream_1000_linear` | 75.75 µs |
+
+Run benchmarks yourself with:
+```bash
+cargo bench --bench wal_bench
 ```
 
 ## License
