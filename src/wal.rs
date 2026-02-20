@@ -6,7 +6,7 @@ use crate::{
 use log::{error, info, warn};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
-use tokio::sync::{RwLock, watch};
+use tokio::sync::{watch, RwLock};
 
 pub struct WalLocalFile {
     pub(crate) base_dir: PathBuf,

@@ -82,10 +82,10 @@ pub fn find_segment_for_lsn(
     }
 
     for &(idx, size) in &segments {
-        if let Ok(last_lsn) = read_segment_last_lsn(base_dir, partition, idx, size)
-            && last_lsn >= target_lsn
-        {
-            return Some(idx);
+        if let Ok(last_lsn) = read_segment_last_lsn(base_dir, partition, idx, size) {
+            if last_lsn >= target_lsn {
+                return Some(idx);
+            }
         }
     }
 

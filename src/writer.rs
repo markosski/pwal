@@ -145,7 +145,7 @@ where
             local_offset: segment_offset_before + record_size,
         };
 
-        // Also update watchers
+        // Update watchers
         {
             let map = self.lsn_watchers.read().await;
             if let Some(sender) = map.get(&partition) {
@@ -216,14 +216,14 @@ impl WalLocalFile {
         base_dir: &std::path::Path,
         wal_file: &mut WalFile,
     ) -> Result<(), WalError> {
-        // 1. Flush the BufWriter
+        // Flush the BufWriter
         wal_file
             .buffer
             .flush()
             .await
             .map_err(|e| WalError::GeneralError(format!("Failed to flush before rotation: {e}")))?;
 
-        // 2. sync_data on the underlying file
+        // sync_data on the underlying file
         wal_file
             .buffer
             .get_ref()
@@ -231,7 +231,7 @@ impl WalLocalFile {
             .await
             .map_err(|e| WalError::GeneralError(format!("Failed to sync before rotation: {e}")))?;
 
-        // 3. Increment segment index and open new file
+        // Increment segment index and open new file
         let new_index = wal_file.segment_index + 1;
 
         let base_str = base_dir.to_str().ok_or_else(|| {
@@ -248,7 +248,7 @@ impl WalLocalFile {
             wal_file.partition, wal_file.segment_index, new_index
         );
 
-        // 4. Replace internal state (old file is dropped / closed)
+        // Replace internal state (old file is dropped / closed)
         wal_file.buffer = BufWriter::new(new_file);
         wal_file.segment_index = new_index;
         wal_file.segment_offset = 0;
