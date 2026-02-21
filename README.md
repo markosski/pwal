@@ -62,9 +62,11 @@ The following benchmarks were performed on a **MacBook Pro** with an **Apple M4*
 ### Results
 | Benchmark | Average Time |
 |-----------|--------------|
-| `append_record` | 6.8 µs |
+| `append_single_record` | 6.8 µs |
 | `append_1000_records` | 6.79 ms |
-| `stream_1000_linear` | 75.75 µs |
+| `append_single_record_and_io_sync` | 3.9 ms |
+| `append_1000_records_and_io_sync` | 9.5 ms |
+| `stream_1000_records_linear` | 75.75 µs |
 
 Run benchmarks yourself with:
 ```bash

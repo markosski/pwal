@@ -1,7 +1,9 @@
 use bincode::{Decode, Encode};
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
 use pwal::wal::WalLocalFile;
-use pwal::{FramedWalRecord, WalError, WalPartitionId, WalPosition, WalReader, WalWriter};
+use pwal::{
+    FramedWalRecord, WalCommon, WalError, WalPartitionId, WalPosition, WalReader, WalWriter,
+};
 use serde::{Deserialize, Serialize};
 use tempfile::tempdir;
 
@@ -30,7 +32,7 @@ fn bench_append(c: &mut Criterion) {
         value: b"value".to_vec(),
     };
 
-    c.bench_function("append_record", |b| {
+    c.bench_function("append_single_record", |b| {
         b.to_async(&rt).iter(|| async {
             wal.append(partition, record.clone()).await.unwrap();
         });
@@ -66,14 +68,15 @@ fn bench_stream(c: &mut Criterion) {
     }
 
     #[allow(clippy::type_complexity)]
-    c.bench_function("stream_1000_linear", |b| {
+    c.bench_function("stream_1000_records_linear", |b| {
         b.to_async(&rt).iter(|| async {
             let iterator: Box<
                 dyn Iterator<Item = Result<(FramedWalRecord<BenchRecord>, WalPosition), WalError>>,
             > = wal.stream_from_lsn(0, partition, false).await;
             let mut count = 0;
             for res in iterator {
-                let _ = res.unwrap();
+                let record = res.unwrap();
+                println!("{:?}", record.0);
                 count += 1;
             }
             assert_eq!(count, 1000);
@@ -112,5 +115,74 @@ fn bench_append_1000(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_append, bench_append_1000, bench_stream);
+fn bench_append_and_sync(c: &mut Criterion) {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let dir = tempdir().unwrap();
+    let wal = rt
+        .block_on(WalLocalFile::new(
+            dir.path().to_path_buf(),
+            true,
+            100 * 1024 * 1024,
+        ))
+        .unwrap();
+    let partition = WalPartitionId(0);
+
+    let value = r#"{"user": "123456", "name": "bob", "number": "123456789"}"#.to_string();
+    let record = BenchRecord::Put {
+        key: b"123456789".to_vec(),
+        value: value.into_bytes(),
+    };
+
+    c.bench_function("append_single_record_and_io_sync", |b| {
+        b.to_async(&rt).iter(|| async {
+            let rec = record.clone();
+            wal.append(partition, rec).await.unwrap();
+            wal.io_sync().await.unwrap();
+        });
+    });
+}
+
+fn bench_append_batch_and_sync(c: &mut Criterion) {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let dir = tempdir().unwrap();
+    let wal = rt
+        .block_on(WalLocalFile::new(
+            dir.path().to_path_buf(),
+            true,
+            100 * 1024 * 1024,
+        ))
+        .unwrap();
+    let partition = WalPartitionId(0);
+
+    let value = r#"{"user": "123456", "name": "bob", "number": "123456789"}"#.to_string();
+    let record = BenchRecord::Put {
+        key: b"123456789".to_vec(),
+        value: value.into_bytes(),
+    };
+
+    c.bench_function("append_1000_records_and_io_sync", |b| {
+        b.to_async(&rt).iter(|| async {
+            for _i in 0..1000 {
+                let rec = record.clone();
+                wal.append(partition, rec).await.unwrap();
+            }
+            wal.io_sync().await.unwrap();
+        });
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_append,
+    bench_append_1000,
+    bench_append_and_sync,
+    bench_append_batch_and_sync,
+    bench_stream
+);
 criterion_main!(benches);
