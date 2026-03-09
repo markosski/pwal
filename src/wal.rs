@@ -1,6 +1,6 @@
 use crate::{
     segment::{find_all_segments, read_segment_last_lsn, segment_filename},
-    types::{Lsn, WalCommon, WalError, WalPartitionId},
+    types::{WalCommon, WalError, WalPartitionId},
     writer::*,
 };
 use log::{error, info, warn};
@@ -81,15 +81,13 @@ impl WalCommon for WalLocalFile {
             rx
         }
     }
-}
 
-impl WalLocalFile {
-    /// Delete old WAL segments for a partition whose max LSN is less than `min_lsn`.
+    /// Delete old WAL segments for a partition based on the given target.
     /// The currently active segment is NEVER deleted.
-    pub async fn purge_before(
+    async fn purge_segments(
         &self,
         partition: WalPartitionId,
-        min_lsn: Lsn,
+        target: crate::types::WalPurgeTarget,
     ) -> Result<u32, WalError> {
         let active_idx = if let Some(lock) = self.write_handles.read().await.get(&partition) {
             lock.lock().await.segment_index
@@ -99,27 +97,49 @@ impl WalLocalFile {
         let segments = find_all_segments(&self.base_dir, partition);
         let mut deleted_count = 0;
 
-        for (idx, size) in segments {
-            // Never delete the active segment
-            if idx == active_idx {
-                continue;
-            }
+        match target {
+            crate::types::WalPurgeTarget::BeforeLsn(min_lsn) => {
+                for (idx, size) in segments {
+                    // Never delete the active segment
+                    if idx == active_idx {
+                        continue;
+                    }
 
-            // Check if this segment's max LSN is below min_lsn
-            match read_segment_last_lsn(&self.base_dir, partition, idx, size) {
-                Ok(last_lsn) => {
-                    if last_lsn < min_lsn {
-                        let path = self.base_dir.join(segment_filename(partition, idx));
-                        if let Err(e) = std::fs::remove_file(&path) {
-                            warn!("Failed to delete WAL segment {path:?}: {e}");
-                        } else {
-                            info!("Purged WAL segment: {path:?}");
-                            deleted_count += 1;
+                    // Check if this segment's max LSN is below min_lsn
+                    match read_segment_last_lsn(&self.base_dir, partition, idx, size) {
+                        Ok(last_lsn) => {
+                            if last_lsn < min_lsn {
+                                let path = self.base_dir.join(segment_filename(partition, idx));
+                                if let Err(e) = std::fs::remove_file(&path) {
+                                    warn!("Failed to delete WAL segment {path:?}: {e}");
+                                } else {
+                                    info!("Purged WAL segment: {path:?}");
+                                    deleted_count += 1;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to read LSN from segment {idx} during purge: {e}");
                         }
                     }
                 }
-                Err(e) => {
-                    warn!("Failed to read LSN from segment {idx} during purge: {e}");
+            }
+            crate::types::WalPurgeTarget::RetainLatestSegments(retain_count) => {
+                let retain_count = std::cmp::max(1, retain_count);
+                let keep_start = segments.len().saturating_sub(retain_count);
+                let segments_to_check = &segments[..keep_start];
+
+                for &(idx, _size) in segments_to_check {
+                    if idx == active_idx {
+                        continue;
+                    }
+                    let path = self.base_dir.join(segment_filename(partition, idx));
+                    if let Err(e) = std::fs::remove_file(&path) {
+                        warn!("Failed to delete WAL segment {path:?}: {e}");
+                    } else {
+                        info!("Purged WAL segment: {path:?}");
+                        deleted_count += 1;
+                    }
                 }
             }
         }
@@ -127,6 +147,7 @@ impl WalLocalFile {
         Ok(deleted_count)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::tests::TestRecord;
@@ -180,7 +201,10 @@ mod tests {
         assert!(test_dir.join("part_0_0000000001.wal").exists());
 
         // Since we only have one segment, and it's active, it should NOT be deleted.
-        let deleted = wal.purge_before(partition, 10).await.unwrap();
+        let deleted = wal
+            .purge_segments(partition, crate::types::WalPurgeTarget::BeforeLsn(10))
+            .await
+            .unwrap();
         assert_eq!(deleted, 0);
         assert!(test_dir.join("part_0_0000000001.wal").exists());
 
@@ -200,7 +224,10 @@ mod tests {
         assert!(test_dir.join("part_0_0000000002.wal").exists());
 
         // Purge. Segment 1 has max LSN 1. 1 < 10, so it should be gone.
-        let deleted = wal.purge_before(partition, 10).await.unwrap();
+        let deleted = wal
+            .purge_segments(partition, crate::types::WalPurgeTarget::BeforeLsn(10))
+            .await
+            .unwrap();
         assert_eq!(deleted, 1);
         assert!(!test_dir.join("part_0_0000000001.wal").exists());
     }
