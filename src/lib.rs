@@ -63,7 +63,7 @@
 //!     // watcher.changed().await will resolve when the next record is appended.
 //!
 //!     // 6. Purge old segments whose max LSN < a threshold.
-//!     let deleted = wal.purge_before(partition, lsn).await?;
+//!     let deleted = wal.purge_segments(partition, pwal::WalPurgeTarget::BeforeLsn(lsn)).await?;
 //!     println!("purged {deleted} old segment(s)");
 //!
 //!     Ok(())

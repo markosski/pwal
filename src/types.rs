@@ -67,6 +67,12 @@ pub struct FramedWalRecord<T> {
 pub trait Wal<T>: WalReader<T> + WalWriter<T> + Send + Sync {}
 impl<T, W> Wal<T> for W where W: WalReader<T> + WalWriter<T> + Send + Sync {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub enum WalPurgeTarget {
+    BeforeLsn(Lsn),
+    RetainLatestSegments(usize),
+}
+
 #[async_trait::async_trait]
 pub trait WalCommon: Send + Sync {
     async fn io_sync(&self) -> Result<(), WalError>;
@@ -74,6 +80,11 @@ pub trait WalCommon: Send + Sync {
         &self,
         partition_id: WalPartitionId,
     ) -> tokio::sync::watch::Receiver<u64>;
+    async fn purge_segments(
+        &self,
+        partition: WalPartitionId,
+        target: WalPurgeTarget,
+    ) -> Result<u32, WalError>;
 }
 
 #[async_trait::async_trait]
