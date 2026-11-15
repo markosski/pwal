@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="pwal is a partitioned, file-backed write-ahead log for Rust. An explanation of record ordering, segment files, disk sync, replay, and retention.">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>pwal — Partitioned write-ahead log for Rust</title>
+  <style>
+    :root{--paper:#f6f7f2;--ink:#182e2a;--muted:#5a6b64;--line:#d6ddd2;--green:#d7f17a;--teal:#1b6c59;--orange:#eab489;--blue:#b9d8ef;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;--sans:Inter,"Helvetica Neue",Arial,sans-serif}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit}button{font:inherit}button,a{-webkit-tap-highlight-color:transparent}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--teal);outline-offset:5px}::selection{background:var(--green);color:var(--ink)}.wrap{max-width:1320px;padding:0 48px;margin:auto}.skip{position:absolute;top:-100px;left:20px;padding:12px;background:var(--green);z-index:9}.skip:focus{top:12px}.nav{height:100px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{text-decoration:none;font-size:30px;font-weight:800;letter-spacing:-1.8px;display:flex;gap:10px;align-items:center}.mark{width:27px;height:27px;display:inline-flex;gap:3px;align-items:center;transform:skewY(-15deg)}.mark i{display:block;width:7px;background:var(--teal);height:21px}.mark i:nth-child(2){height:27px}.mark i:nth-child(3){height:15px}.nav-links{display:flex;gap:30px;align-items:center;font-size:13px}.nav-links a{text-decoration:none}.nav-links a:hover{text-decoration:underline;text-underline-offset:5px}.repo-link{border:1px solid var(--line);border-radius:6px;padding:10px 14px}.eyebrow{font:11px var(--mono);letter-spacing:1.7px;text-transform:uppercase;display:flex;align-items:center;gap:9px}.dot{width:7px;height:7px;border-radius:50%;background:var(--teal);display:inline-block;flex:none}.hero{padding:76px 0 66px;display:grid;grid-template-columns:.9fr 1.1fr;gap:54px;align-items:center}h1{font-size:clamp(48px,5.2vw,72px);line-height:1.04;letter-spacing:-3.8px;font-weight:550;margin:27px 0 24px}h1 em{font-style:normal;color:var(--teal)}.intro{font-size:17px;line-height:1.7;max-width:440px;color:var(--muted)}.intro strong{color:var(--ink);font-weight:550}.actions{display:flex;gap:12px;flex-wrap:wrap;margin:29px 0 30px}.button{font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:22px;padding:15px 20px;border-radius:5px;text-decoration:none;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}.button:hover{background:#e9eddf}.button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}.button.primary:hover{background:var(--teal)}.tiny{font:11px var(--mono);color:var(--muted);line-height:1.7}.hero-meta{display:flex;gap:16px;flex-wrap:wrap}.hero-meta span+span:before{content:"/";margin-right:16px;color:#9aa69b}
+    .log-demo{border:1px solid #bfcdbf;border-radius:10px;background:#eef1e8;box-shadow:0 16px 40px #24352a08;overflow:hidden}.demo-head{padding:20px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);font:11px var(--mono)}.demo-head .live{display:flex;align-items:center;gap:7px;color:var(--teal)}.demo-body{padding:25px 22px 18px}.app-node{display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:white;padding:14px 16px;border-radius:5px;font-size:12px}.app-node code{font:11px var(--mono);color:var(--green)}.feed{display:flex;align-items:center;gap:10px;justify-content:center;font:10px var(--mono);color:var(--muted);height:43px}.feed:before,.feed:after{content:"";height:1px;background:var(--line);width:52px}.partition{--accent:var(--green);background:#fafbf7;border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:10px}.partition[data-partition="1"]{--accent:var(--blue)}.partition[data-partition="2"]{--accent:var(--orange)}.partition-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:11px}.partition-name{font:11px var(--mono);display:flex;align-items:center;gap:7px}.partition-name:before{content:"";width:8px;height:8px;background:var(--accent);border:1px solid #182e2a30}.append{font:10px var(--mono);border:1px solid #cbd5c5;border-radius:4px;color:var(--ink);background:transparent;padding:5px 7px;cursor:pointer;white-space:nowrap}.append:hover{background:var(--accent);border-color:var(--ink)}.segments{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:61px}.segment{border:1px solid var(--line);border-radius:3px;padding:6px;background:#f0f2eb}.segment.active{border-color:#8b9d87;background:#fff}.segment-title{font:9px var(--mono);display:flex;justify-content:space-between;color:var(--muted);margin-bottom:5px;gap:4px}.records{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;min-height:25px}.record{background:var(--accent);display:flex;align-items:center;justify-content:center;border:1px solid #182e2a10;border-radius:2px;font:10px var(--mono);padding:6px 1px}.record.empty{background:transparent;border:1px dashed #cbd5c5}.record.new{animation:arrive .35s ease-out}.segment.empty-segment{display:flex;align-items:center;justify-content:center;border-style:dashed;background:transparent;font:10px var(--mono);color:var(--muted)}.demo-foot{padding:15px 22px;background:#e6eadf;border-top:1px solid var(--line);font:10px var(--mono);line-height:1.7;min-height:65px}.demo-foot strong{font-weight:600;color:var(--teal)}.demo-caption{font-size:11px;line-height:1.6;margin:12px 3px 0;color:var(--muted)}.demo-caption code{font-size:10px}.reset{border:0;border-bottom:1px solid var(--muted);background:none;font:10px var(--mono);padding:1px 0;color:var(--muted);cursor:pointer;margin-left:7px}.legend{display:flex;gap:16px;align-items:center;font:9px var(--mono);color:var(--muted);margin:15px 0 0}.legend span{display:flex;gap:5px;align-items:center}.legend i{width:9px;height:9px;border:1px solid #8b9d87;background:white}.legend span:nth-child(2) i{background:#f0f2eb;border-color:var(--line)}
+    .principles{display:grid;grid-template-columns:repeat(3,1fr);padding:28px 0 36px;border-top:1px solid var(--line);gap:36px}.principle{display:grid;grid-template-columns:30px 1fr;gap:13px}.mini-icon{font:18px var(--mono);color:var(--teal);padding-top:2px}.principle h2{font-size:14px;font-weight:600;margin:0 0 9px}.principle p{font-size:12px;line-height:1.7;margin:0;color:var(--muted)}.section{padding:75px 0;border-top:1px solid var(--line)}.section-head{display:flex;justify-content:space-between;gap:35px;align-items:flex-end;margin-bottom:38px}.section-head h2{font-size:39px;letter-spacing:-1.5px;line-height:1.15;font-weight:500;margin:17px 0 0}.section-head p{font-size:14px;line-height:1.7;max-width:355px;margin:0;color:var(--muted)}
+    .lifecycle{background:var(--ink);color:var(--paper);border-radius:9px;padding:34px}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}.flow-step{position:relative}.flow-step:not(:last-child):after{content:"→";position:absolute;right:-20px;top:11px;color:#8ba69a;font-size:18px}.step-index{font:10px var(--mono);color:var(--green);border:1px solid #6a8173;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin-bottom:23px}.flow-step h3{font-size:16px;font-weight:500;margin:0 0 12px}.flow-step p{font-size:12px;line-height:1.75;color:#bdcdc2;margin:0}.flow-step code{color:#e6eddd;font:11px var(--mono)}.flow-note{border-top:1px solid #42574e;margin-top:29px;padding-top:19px;color:#bdcdc2;font-size:11px;line-height:1.7}.flow-note strong{color:var(--green);font-weight:500}.anatomy{margin-top:25px;display:grid;grid-template-columns:1fr 1.6fr;gap:35px;align-items:center}.anatomy p{font-size:12px;line-height:1.7;color:var(--muted);margin:0}.anatomy p strong{color:var(--ink);font-weight:500}.bytes{display:grid;grid-template-columns:1fr 2fr 1fr;gap:4px;font:10px var(--mono)}.bytes span{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:58px;border:1px solid var(--line);border-radius:3px;background:#ecefe6}.bytes span:nth-child(2){background:#e2edca}.bytes small{font-size:9px;color:var(--muted)}
+    .use-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px}.use-list{display:grid;gap:23px;margin-top:30px}.use{display:grid;grid-template-columns:35px 1fr;gap:10px}.use-num{font:11px var(--mono);color:var(--teal);padding-top:3px}.use h3{margin:0 0 7px;font-size:15px;font-weight:550}.use p{font-size:13px;line-height:1.7;color:var(--muted);margin:0;max-width:420px}.boundary{margin-top:28px;border-left:2px solid var(--teal);padding:2px 0 2px 16px;font-size:12px;color:var(--muted);line-height:1.8}.boundary strong{color:var(--ink);font-weight:600}.code-panel{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:start}.code-head{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;background:#edf0e7;border-bottom:1px solid var(--line);font:11px var(--mono)}.code-head a{font-size:10px;text-underline-offset:3px}.install{padding:20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}.install code{font:12px var(--mono)}.copy{cursor:pointer;border:1px solid var(--line);border-radius:4px;padding:6px 9px;font:10px var(--mono);color:var(--ink);background:var(--paper)}pre{margin:0;padding:22px 20px;overflow:auto;font:11px/1.9 var(--mono);tab-size:4}pre .comment{color:#71816d}pre .keyword{color:#6655a2}pre .string{color:var(--teal)}.code-bottom{border-top:1px solid var(--line);padding:14px 20px;font-size:11px;line-height:1.7;color:var(--muted)}.code-bottom code{font-size:10px}.getting-title{font-size:30px;letter-spacing:-1px;font-weight:500;margin:17px 0 0}.faq{margin-top:35px;border-top:1px solid var(--line)}details{border-bottom:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-size:13px;font-weight:500;line-height:1.6}details p{font-size:12px;color:var(--muted);line-height:1.8;margin:14px 0 0}details code{font:11px var(--mono)}.closing{display:flex;align-items:center;justify-content:space-between;padding:37px 0;border-top:1px solid var(--line);gap:25px}.closing p{font-size:20px;font-weight:500;letter-spacing:-.5px;margin:0}.closing .button{padding:12px 18px}footer{border-top:1px solid var(--line);padding:23px 0 30px;display:flex;justify-content:space-between;font:10px var(--mono);color:var(--muted);gap:20px}footer a{text-underline-offset:3px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@keyframes arrive{from{opacity:.25;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+    @media(min-width:1400px){.hero{gap:80px}}@media(max-width:1000px){.wrap{padding:0 30px}.hero{gap:28px}h1{font-size:54px;letter-spacing:-2.8px}.intro{font-size:15px}.demo-body{padding:20px 14px 15px}.demo-head,.demo-foot{padding-left:14px;padding-right:14px}.use-grid{gap:34px}.flow{gap:22px}.lifecycle{padding:26px}.principles{gap:23px}}@media(max-width:760px){.wrap{padding:0 22px}.nav{height:78px}.nav-links{gap:17px;font-size:12px}.nav-links .repo-link{display:none}.hero{grid-template-columns:1fr;padding:48px 0 38px;gap:35px}h1{font-size:clamp(48px,10vw,68px);letter-spacing:-2.8px;margin-top:22px}.intro{max-width:540px;font-size:16px}.hero-meta{margin-top:-6px}.principles{grid-template-columns:1fr;gap:26px;padding:28px 0 36px}.principle p{font-size:13px;max-width:490px}.section{padding:45px 0}.section-head{display:block}.section-head h2{font-size:34px}.section-head p{margin-top:20px;max-width:520px}.flow{grid-template-columns:1fr 1fr;gap:28px}.flow-step:not(:last-child):after{display:none}.step-index{margin-bottom:14px}.anatomy{grid-template-columns:1fr;gap:17px}.use-grid{grid-template-columns:1fr;gap:35px}.closing{align-items:flex-start;flex-direction:column}.closing p{font-size:22px}footer{flex-wrap:wrap;line-height:1.7}.demo-body{padding:22px}.demo-head,.demo-foot{padding-left:22px;padding-right:22px}}@media(max-width:380px){.wrap{padding:0 16px}.nav-links{gap:12px}.demo-body{padding:15px 10px}.demo-head,.demo-foot{padding-left:12px;padding-right:12px}.partition{padding:9px}.segment-title{font-size:8px}.lifecycle{padding:21px}.flow{grid-template-columns:1fr}.bytes{font-size:9px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
+    .demo-foot:empty{display:none}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="wrap">
+    <header class="nav">
+      <a class="brand" href="#" aria-label="pwal home"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>pwal<span style="font:10px var(--mono);letter-spacing:0;color:var(--muted);margin-left:4px">/ 0.2.0</span></a>
+      <nav class="nav-links" aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#get-started">Usage</a><a class="repo-link" href="https://github.com/markosski/pwal">GitHub <span aria-hidden="true">↗</span></a></nav>
+    </header>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <div class="eyebrow"><span class="dot"></span>pwal / Rust library</div>
+          <h1 id="hero-title">Partitioned<br>write-ahead <em>log.</em></h1>
+          <p class="intro"><strong>pwal appends typed records to local segment files.</strong> Partition IDs separate independent streams, such as database shards. Each stream has its own log sequence numbers (LSNs), write lock, and read position.</p>
+          <div class="actions"><a class="button primary" href="#get-started">Usage example <span aria-hidden="true">↗</span></a><a class="button" href="#how-it-works">Storage model <span aria-hidden="true">↓</span></a></div>
+        </div>
+        <div>
+          <div class="log-demo" aria-label="Interactive illustration of three independent partition logs">
+            <div class="demo-head"><span>INSIDE THE LOG</span><span class="live"><span class="dot"></span>Illustrative demo</span></div>
+            <div class="demo-body">
+              <div class="app-node"><span>Your application</span><code>append(partition, record)</code></div>
+              <div class="feed"><span aria-hidden="true">↓</span> route by partition <span aria-hidden="true">↓</span></div>
+              <div class="partition" data-partition="0"><div class="partition-top"><span class="partition-name">Partition 0</span><button class="append" type="button" data-append="0" aria-label="Append a record to partition 0">+ append record</button></div><div class="segments" id="segments-0"></div></div>
+              <div class="partition" data-partition="1"><div class="partition-top"><span class="partition-name">Partition 1</span><button class="append" type="button" data-append="1" aria-label="Append a record to partition 1">+ append record</button></div><div class="segments" id="segments-1"></div></div>
+              <div class="partition" data-partition="2"><div class="partition-top"><span class="partition-name">Partition 2</span><button class="append" type="button" data-append="2" aria-label="Append a record to partition 2">+ append record</button></div><div class="segments" id="segments-2"></div></div>
+              <div class="legend"><span><i></i>active segment</span><span><i></i>older segment</span><span>LSN = record sequence number</span></div>
+            </div>
+            <div class="demo-foot" id="demo-status" role="status" aria-live="polite"></div>
+          </div>
+          <p class="demo-caption">Each box is a record; the two latest segments are shown. This demo rotates after 3 records; pwal uses a configurable byte limit. <button class="reset" type="button" id="reset-demo">Reset demo</button></p>
+          <noscript><p class="demo-caption">Enable JavaScript to try the diagram. Each partition has its own sequence of records, split into segment files.</p></noscript>
+        </div>
+      </section>
+      <section class="section partitioning" aria-labelledby="partition-title">
+        <div class="section-head"><div><div class="eyebrow">01 / Why partitioned?</div><h2 id="partition-title">Separate streams of changes</h2></div><p><strong>Why partitioned log?</strong> A single log puts every write in one sequence. Partitions give independent data streams their own sequences. The application chooses a partition ID for each append.</p></div>
+        <div class="principles" style="border-top:0;padding:0">
+          <div class="principle"><span class="mini-icon" aria-hidden="true">≋</span><div><h2>Separate write locks</h2><p>Appends within a partition are serialized. Appends to different partitions can proceed concurrently, without waiting on the same partition write lock. They still share the underlying storage.</p></div></div>
+          <div class="principle"><span class="mini-icon" aria-hidden="true">↳</span><div><h2>Independent replay</h2><p>A consumer reads and tracks progress for each partition separately. Recovering or catching up one database shard does not require scanning records from every other shard.</p></div></div>
+          <div class="principle"><span class="mini-icon" aria-hidden="true">◉</span><div><h2>Independent retention</h2><p>Segment files belong to a partition, and purge calls target one partition. The application can remove old segments for a checkpointed shard while keeping another shard’s history for replay.</p></div></div>
+        </div>
+        <div class="boundary"><strong>Partition boundaries are ordering boundaries.</strong> Records that need a common sequence belong in the same partition. LSN 10 in partition 0 has no ordering relationship to LSN 10 in partition 1. In the diagram above, appending to one partition leaves the other sequences unchanged.</div>
+      </section>
+      <section class="section" id="how-it-works" aria-labelledby="how-title">
+        <div class="section-head"><div><div class="eyebrow">02 / Storage model</div><h2 id="how-title">Writing and reading records</h2></div><p>For write-ahead logging, the application records a change before applying it to state. pwal handles the log files; the application controls when state is updated.</p></div>
+        <div class="lifecycle">
+          <div class="flow">
+            <div class="flow-step"><span class="step-index">01</span><h3>Record and partition</h3><p>The application defines the record type and selects a partition. A call to <code>append</code> acquires that partition’s write lock.</p></div>
+            <div class="flow-step"><span class="step-index">02</span><h3>Encoding and append</h3><p>pwal assigns the partition’s next LSN, encodes the record with bincode, and appends it to the active segment file.</p></div>
+            <div class="flow-step"><span class="step-index">03</span><h3>Flush and disk sync</h3><p><code>append</code> flushes the write buffer to the file. A separate <code>io_sync()</code> call requests a disk sync across open partition files.</p></div>
+            <div class="flow-step"><span class="step-index">04</span><h3>Sequential read</h3><p>A reader starts at an LSN or file position, decodes records in order, and continues into subsequent segments until it reaches the end.</p></div>
+          </div>
+          <div class="flow-note"><strong>Segment rotation.</strong> Before an append would exceed the configured byte limit, pwal syncs the nonempty active segment and opens the next numbered file. A single record larger than the limit is stored in its own segment.</div>
+        </div>
+        <div class="anatomy"><p><strong>Record layout.</strong> A 4-byte little-endian length prefixes the bincode payload. An 8-byte little-endian LSN footer is used to recover the last sequence number when reopening a partition.</p><div class="bytes" aria-label="Record format: 4 byte length, variable bincode payload containing LSN and record, 8 byte LSN footer"><span>Length<small>4 bytes</small></span><span>LSN + record<small>bincode payload</small></span><span>LSN footer<small>8 bytes</small></span></div></div>
+      </section>
+      <section class="section" id="get-started" aria-labelledby="build-title">
+        <div class="use-grid">
+          <div>
+            <div class="eyebrow">03 / Usage</div>
+            <h2 class="getting-title" id="build-title">Reopening, consuming,<br>and retaining the log</h2>
+            <div class="use-list">
+              <div class="use"><span class="use-num">[a]</span><div><h3>Reopen existing files</h3><p>Use the same directory with truncation disabled. On the first append to a partition, pwal locates its latest segment and reads the last LSN to continue the sequence.</p></div></div>
+              <div class="use"><span class="use-num">[b]</span><div><h3>Track consumer progress</h3><p>Store the last processed LSN or position per partition. Readers support inclusive or exclusive LSN bounds. Watcher notifications indicate when to read again; the application handles delivery to replicas or other consumers.</p></div></div>
+              <div class="use"><span class="use-num">[c]</span><div><h3>Purge old segments</h3><p>Remove segments whose maximum LSN is below a threshold, or retain a chosen number of recent segments. The active segment is preserved. The application decides which records are no longer needed.</p></div></div>
+            </div>
+          </div>
+          <div class="code-panel">
+            <div class="code-head"><span>APPEND AND READ / RUST</span><a href="https://github.com/markosski/pwal/blob/main/src/lib.rs">Full API example ↗</a></div>
+            <div class="install"><code id="install-command">cargo add pwal bincode</code><button class="copy" type="button" id="copy-install" aria-label="Copy cargo install dependencies command">Copy</button></div>
+            <pre aria-label="Rust example: create a log, append a typed record, and replay it"><code><span class="keyword">use</span> bincode::{Decode, Encode};
+<span class="keyword">use</span> pwal::{wal::WalLocalFile, WalCommon,
+           WalPartitionId, WalReader, WalWriter};
+
+#[derive(Encode, Decode)]
+<span class="keyword">struct</span> Change { key: String, value: String }
+
+<span class="comment">// Inside your Tokio async context:</span>
+<span class="keyword">let</span> wal = WalLocalFile::new(
+    <span class="string">"./wal_data"</span>.into(),
+    <span class="keyword">false</span>,       <span class="comment">// keep existing history</span>
+    1024 * 1024, <span class="comment">// 1 MiB segment limit</span>
+).await?;
+
+<span class="keyword">let</span> partition = WalPartitionId(0);
+<span class="keyword">let</span> (lsn, position) = wal.append(partition, Change {
+    key: <span class="string">"hello"</span>.into(), value: <span class="string">"world"</span>.into(),
+}).await?;
+println!(<span class="string">"Appended {lsn} at {position:?}"</span>);
+wal.io_sync().await?;
+
+<span class="comment">// Replay from the first retained record.</span>
+<span class="keyword">let</span> records = WalReader::&lt;Change&gt;::stream_from_lsn(
+    &amp;wal, 0, partition, <span class="keyword">false</span>,
+).await;
+<span class="keyword">for</span> entry <span class="keyword">in</span> records {
+    <span class="keyword">let</span> (record, _position) = entry?;
+    println!(<span class="string">"{} = {}"</span>, record.record.key,
+                         record.record.value);
+}</code></pre>
+            <div class="code-bottom">Also add <code>tokio</code> with the runtime features your application needs. Records implement bincode’s <code>Encode</code> and <code>Decode</code>, plus <code>Send + Sync + 'static</code>.</div>
+          </div>
+        </div>
+        <div class="faq">
+          <details><summary>What does an append return?</summary><p>The assigned LSN and a <code>WalPosition</code>: the segment index and the byte offset immediately after the written record. Keep these to resume reading with <code>stream_from</code>, or use <code>stream_from_lsn</code> to locate a starting segment automatically.</p></details>
+          <details><summary>Does a watcher deliver every record?</summary><p>A watcher reports the latest LSN through a Tokio watch channel. Updates may coalesce. Use the notification as a prompt to read the log from your consumer’s last processed position; the log holds the records.</p></details>
+          <details><summary>What is the difference between append and disk sync?</summary><p>An append flushes the userspace buffer to the underlying file. It does not by itself request a durable disk sync. <code>io_sync()</code> requests <code>sync_data</code> on open partition files. In this version, that method does not propagate individual sync failures to the caller; account for this when choosing durability guarantees.</p></details>
+        </div>
+      </section>
+      <div class="closing"><p>Source code and API definitions</p><a class="button primary" href="https://github.com/markosski/pwal">GitHub repository <span aria-hidden="true">↗</span></a></div>
+    </main>
+    <footer><span>pwal / Partitioned Write-Ahead Log</span><span>Rust / <a href="https://github.com/markosski/pwal/blob/main/LICENSE.md">Apache-2.0</a></span></footer>
+  </div>
+  <script>
+    (() => {
+      // A conceptual illustration, not a live WAL or a byte-accurate storage model.
+      const initialCounts = [5, 3, 4];
+      let counts = [...initialCounts];
+      const status = document.getElementById('demo-status');
+      function renderPartition(partition, animate = false) {
+        const count = counts[partition];
+        const active = Math.ceil(count / 3);
+        const container = document.getElementById(`segments-${partition}`);
+        container.replaceChildren();
+        if (active === 1) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'segment empty-segment';
+          placeholder.textContent = 'No older segment';
+          container.append(placeholder);
+        }
+        for (let segment = Math.max(1, active - 1); segment <= active; segment++) {
+          const box = document.createElement('div');
+          box.className = `segment${segment === active ? ' active' : ''}`;
+          const title = document.createElement('div');
+          title.className = 'segment-title';
+          const name = document.createElement('span');
+          name.textContent = `segment ${String(segment).padStart(2, '0')}`;
+          const state = document.createElement('span');
+          state.textContent = segment === active ? '← writing' : 'closed';
+          title.append(name, state);
+          const records = document.createElement('div');
+          records.className = 'records';
+          for (let slot = 1; slot <= 3; slot++) {
+            const lsn = (segment - 1) * 3 + slot;
+            const record = document.createElement('span');
+            record.className = `record${lsn > count ? ' empty' : ''}${animate && lsn === count ? ' new' : ''}`;
+            record.textContent = lsn <= count ? `#${lsn}` : '·';
+            record.setAttribute('aria-label', lsn <= count ? `Record LSN ${lsn}` : 'Space for a future record');
+            records.append(record);
+          }
+          box.append(title, records);
+          container.append(box);
+        }
+      }
+      function renderAll() { counts.forEach((_, partition) => renderPartition(partition)); }
+      document.querySelectorAll('[data-append]').forEach(button => {
+        button.addEventListener('click', () => {
+          const partition = Number(button.dataset.append);
+          const before = counts[partition];
+          counts[partition]++;
+          renderPartition(partition, true);
+          const message = document.createElement('strong');
+          message.textContent = `Partition ${partition} → LSN ${counts[partition]}. `;
+          status.replaceChildren(message, document.createTextNode(before % 3 === 0
+            ? 'Segment rotated. Sequence continues; other partitions stay unchanged.'
+            : 'Record appended. Only this partition’s sequence advanced.'));
+        });
+      });
+      document.getElementById('reset-demo').addEventListener('click', () => {
+        counts = [...initialCounts];
+        renderAll();
+        status.textContent = 'Demo reset. Append records to see independent sequences and segment rotation.';
+      });
+      renderAll();
+      const copy = document.getElementById('copy-install');
+      let copyTimer;
+      copy.addEventListener('click', async () => {
+        clearTimeout(copyTimer);
+        try {
+          await navigator.clipboard.writeText(document.getElementById('install-command').textContent);
+          copy.textContent = 'Copied!';
+        } catch {
+          copy.textContent = 'Select command';
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(document.getElementById('install-command'));
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        copyTimer = setTimeout(() => { copy.textContent = 'Copy'; }, 2500);
+      });
+    })();
+  </script>
+</body>
+</html>
